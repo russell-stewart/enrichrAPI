@@ -175,7 +175,7 @@ for module in modules:
 
     row = 1
     for entry in sortedEntries:
-        if int(entry.overlapGenes) >= int(minOverlap) and int(entry.adjPval) >= int(minAdjPval):
+        if int(entry.overlapGenes) >= int(minOverlap) and float(entry.adjPval) >= float(minAdjPval):
             worksheet.write(row , 0 , entry.geneSet)
             worksheet.write(row , 1 , entry.term)
             worksheet.write(row , 2 , str(entry.overlapGenes)+'_'+str(module.numGenes))
@@ -185,7 +185,6 @@ for module in modules:
             worksheet.write(row , 6 , entry.score)
             worksheet.write(row , 7 , entry.genes)
             row += 1
-
     print '%s written.' % module.name
 
 print '\nSaving %s...' % oFilePath
