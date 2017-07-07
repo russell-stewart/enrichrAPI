@@ -1,16 +1,21 @@
 #enrichrAPI.py
 #Russell Stewart
-#7/6/2017
+#7/7/2017
 #Allows a user to specify a .txt file of genes, an output file, and a list of
 #gene sets to batch analyze in Enrichr, eliminating the need for using UIs with
 #the website.
 #
 #PROGRAM OPTIONS:
-#python enrichrAPI.py --ifile <iFilePath> --ofile <oFilePath> --libraries <libraryFilePath> [--minOverlap] <int>]
+#python enrichrAPI.py --ifile <iFilePath> --ofile <oFilePath> --libraries <libraryFilePath> [--minOverlap] <int>] [--minAdjPval <int>]
 #--ifile: the file path for the input (.txt) file. should have two columns: first has gene names, second has corresponding modules
 #--ofile: the file path for the output (.xlsx) file with the Enrichr results
 #--libraries: the Enrichr-compatible gene sets you want to search through, stored on seperate lines in a .txt file.
-#--minOverlap: the minimum number of overlapping genes you want to filter your results by. optional: default is 0.
+#--minOverlap: the minimum number of overlapping genes you want to filter your results by. optional: default is 5
+#--minAdjPval: genes with p values below this number will be removed from the results. optional: default is .05
+#
+#FUTURE FEATURES:
+#Pval cutoff
+#Something seems to be wrong with gene overlap numbers (like we're getting 100 overlaps out of 30 genes)
 
 import json
 import requests
@@ -33,9 +38,6 @@ class Entry():
     def toString(self):
         return(self.geneSet + ',' + self.term + ',' + str(self.overlapGenes)+'_'+str(numGenes) + ',' + str(self.pval) + ',' + str(self.zscore) + ',' + str(self.adjPval) + ',' + str(self.score) + ',' + str(self.genes) + '\n')
 
-#This will be appended to become a database of all Entries
-entries = []
-
 #Stores the name and a gene string from one module in the input file.
 class Module():
     def __init__(self , name):
@@ -57,12 +59,13 @@ postURL = 'http://amp.pharm.mssm.edu/Enrichr/addList'
 
 #Parses options given with the program call from terminal.
 #See comment at top of file for option list.
-opts = getopt.getopt(sys.argv[1:] , '' , ['ifile=' , 'ofile=' , 'libraries=' , 'minOverlap='])
+opts = getopt.getopt(sys.argv[1:] , '' , ['ifile=' , 'ofile=' , 'libraries=' , 'minOverlap=' , 'minAdjPval='])
 
 iFilePath = None
 oFilePath = None
 geneSetLibraries = []
 minOverlap = None
+minAdjPval = None
 for opt , arg in opts[0]:
     if opt == '--ifile':
         iFilePath = arg
@@ -74,12 +77,17 @@ for opt , arg in opts[0]:
             geneSetLibraries.append(line[:line.find('\n')])
     elif opt == '--minOverlap':
         minOverlap = arg
+    elif opt == '--minAdjPval':
+        minAdjPval = arg
 
 if minOverlap is None:
-    minOverlap = 0
+    minOverlap = 5
+
+if minAdjPval is None:
+    minAdjPval = .05
 
 if iFilePath is None or oFilePath is None or geneSetLibraries is []:
-    raise Exception('Incorrect option syntax. See below for example:\n\npython enrichrAPI.py --ifile <iFilePath> --ofile <oFilePath> --libraries <libraryFilePath> [--minOverlap] <int>]')
+    raise Exception('Incorrect option syntax. See below for example:\n\npython enrichrAPI.py --ifile <iFilePath> --ofile <oFilePath> --libraries <libraryFilePath> [--minOverlap] <int>] [--minAdjPval <int>]')
 
 #Read in genes and modules from the input file
 ifile = open(iFilePath , 'r')
@@ -117,6 +125,9 @@ for module in modules:
     worksheet.write(0 , 6 , 'Combined Score')
     worksheet.write(0 , 7 , 'Genes')
 
+
+    #This will be appended to become a database of all Entries.
+    entries = []
 
     #POST request to /Enrichr/addList to upload data
     payload = {
@@ -164,7 +175,7 @@ for module in modules:
 
     row = 1
     for entry in sortedEntries:
-        if int(entry.overlapGenes) >= int(minOverlap):
+        if int(entry.overlapGenes) >= int(minOverlap) and int(entry.adjPval) >= int(minAdjPval):
             worksheet.write(row , 0 , entry.geneSet)
             worksheet.write(row , 1 , entry.term)
             worksheet.write(row , 2 , str(entry.overlapGenes)+'_'+str(module.numGenes))
@@ -177,7 +188,7 @@ for module in modules:
 
     print '%s written.' % module.name
 
-print 'Saving %s. This might take a second...' % oFilePath
+print '\nSaving %s...' % oFilePath
 
 ifile.close()
 ofile.close()
