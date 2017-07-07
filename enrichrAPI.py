@@ -69,14 +69,9 @@ for opt , arg in opts[0]:
     elif opt == '--ofile':
         oFilePath = arg
     elif opt == '--libraries':
-        moreLibraries = True
-        while moreLibraries:
-            if arg.find(',') > -1:
-                geneSetLibraries.append(arg[:operator.indexOf(arg , ',')])
-                arg = arg[(operator.indexOf(arg  , ',') + 1):]
-            else:
-                geneSetLibraries.append(arg)
-                moreLibraries = False
+        libraryFile = open(arg , 'r')
+        for line in libraryFile:
+            geneSetLibraries.append(line[:line.find('\n')])
     elif opt == '--minOverlap':
         minOverlap = arg
 
@@ -180,9 +175,11 @@ for module in modules:
             worksheet.write(row , 7 , entry.genes)
             row += 1
 
-    print('%s written.' % module.name)
+    print '%s written.' % module.name
+
+print 'Saving %s. This might take a second...' % oFilePath
 
 ifile.close()
 ofile.close()
 
-print('\n\n%s written. All done!' % oFilePath)
+print '\n\n%s written. All done!' % oFilePath
