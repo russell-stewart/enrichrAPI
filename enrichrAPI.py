@@ -15,7 +15,8 @@
 #
 #KNOWN ISSUES
 #the gene overlap should compare positives to the number of genes in THAT SPECIFIC PATHWAY, not the number of genes in the module.
-
+#maybe try the /Enrichr/export endpoint?
+#
 import json
 import requests
 import sys
