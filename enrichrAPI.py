@@ -13,9 +13,8 @@
 #--minOverlap: the minimum number of overlapping genes you want to filter your results by. optional: default is 5
 #--minAdjPval: genes with p values below this number will be removed from the results. optional: default is .05
 #
-#FUTURE FEATURES:
-#Pval cutoff
-#Something seems to be wrong with gene overlap numbers (like we're getting 100 overlaps out of 30 genes)
+#KNOWN ISSUES
+#the gene overlap should compare positives to the number of genes in THAT SPECIFIC PATHWAY, not the number of genes in the module.
 
 import json
 import requests
@@ -175,7 +174,7 @@ for module in modules:
 
     row = 1
     for entry in sortedEntries:
-        if int(entry.overlapGenes) >= int(minOverlap) and float(entry.adjPval) >= float(minAdjPval):
+        if int(entry.overlapGenes) >= int(minOverlap) and float(entry.adjPval) <= float(minAdjPval):
             worksheet.write(row , 0 , entry.geneSet)
             worksheet.write(row , 1 , entry.term)
             worksheet.write(row , 2 , str(entry.overlapGenes)+'_'+str(module.numGenes))
