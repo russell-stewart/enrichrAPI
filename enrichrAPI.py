@@ -13,10 +13,7 @@
 #--minOverlap: the minimum number of overlapping genes you want to filter your results by. optional: default is 5
 #--minAdjPval: genes with p values below this number will be removed from the results. optional: default is .05
 #
-#KNOWN ISSUES
-#the gene overlap should compare positives to the number of genes in THAT SPECIFIC PATHWAY, not the number of genes in the module.
-#maybe try the /Enrichr/export endpoint?
-#
+
 import json
 import requests
 import sys
@@ -36,7 +33,7 @@ class Entry():
         self.score = score
         self.genes = genes
     def toString(self):
-        return(self.geneSet + ',' + self.term + ',' + str(self.overlapGenes)+'_'+str(numGenes) + ',' + str(self.pval) + ',' + str(self.zscore) + ',' + str(self.adjPval) + ',' + str(self.score) + ',' + str(self.genes) + '\n')
+        return(self.geneSet + ',' + self.term + ',' + str(self.overlapGenes) + ',' + str(self.pval) + ',' + str(self.zscore) + ',' + str(self.adjPval) + ',' + str(self.score) + ',' + str(self.genes) + '\n')
 
 #Stores the name and a gene string from one module in the input file.
 class Module():
@@ -150,21 +147,43 @@ for module in modules:
     for geneSetLibrary in geneSetLibraries:
         print('Searching %s...' % geneSetLibrary)
 
-        response = requests.get('http://amp.pharm.mssm.edu/Enrichr/enrich?userListId=%s&backgroundType=%s' % (uploadData.get('userListId') , geneSetLibrary))
-
+        url = 'http://amp.pharm.mssm.edu/Enrichr/export?userListId=%s&filename=%s&backgroundType=%s' % (uploadData.get('userListId') , 'exportResults' , geneSetLibrary)
+        response = requests.get(url)
         if not response.ok:
             raise Exception('Error searching %s' % geneSetLibrary)
 
-        data = json.loads(response.text)
+        fileBody = ''
+        for chunk in response.iter_content(chunk_size=1024):
+            if chunk:
+                fileBody += chunk
 
-
-
-        for database in data:
-            for entry in data[database]:
-                overlapGenes = ''
-                for gene in entry[5]:
-                    overlapGenes += gene + ';'
-                entries.append(Entry(database , entry[1] , len(entry[5]) , entry[2] , entry[3] , entry[6] , entry[4] , overlapGenes))
+        shouldLoop = 1
+        while shouldLoop:
+            term = fileBody[:fileBody.find('\t')]
+            fileBody = fileBody[(fileBody.find('\t') + 1):]
+            overlap = fileBody[:fileBody.find('\t')]
+            overlap = overlap[:overlap.find('/')] + '_' + overlap[(overlap.find('/') + 1):]
+            fileBody = fileBody[(fileBody.find('\t') + 1):]
+            Pval = fileBody[:fileBody.find('\t')]
+            fileBody = fileBody[(fileBody.find('\t') + 1):]
+            adjPval = fileBody[:fileBody.find('\t')]
+            fileBody = fileBody[(fileBody.find('\t') + 1):]
+            oldPval = fileBody[:fileBody.find('\t')]
+            fileBody = fileBody[(fileBody.find('\t') + 1):]
+            oldAdjPval = fileBody[:fileBody.find('\t')]
+            fileBody = fileBody[(fileBody.find('\t') + 1):]
+            Zscore = fileBody[:fileBody.find('\t')]
+            fileBody = fileBody[(fileBody.find('\t') + 1):]
+            score = fileBody[:fileBody.find('\t')]
+            fileBody = fileBody[(fileBody.find('\t') + 1):]
+            genes = fileBody[:fileBody.find('\n')]
+            fileBody = fileBody[(fileBody.find('\n') + 1):]
+            if len(fileBody) > 1:
+                shouldLoop = True
+            else:
+                shouldLoop = False
+            newEntry = Entry(geneSetLibrary , term , overlap , Pval , Zscore , adjPval , score , genes)
+            entries.append(newEntry)
 
     print('Libraries searched.')
 
@@ -172,13 +191,12 @@ for module in modules:
     sortedEntries = sorted(entries, key=lambda entry: entry.score , reverse=True)
 
     #Iterate over entries and print each entry
-
     row = 1
     for entry in sortedEntries:
-        if int(entry.overlapGenes) >= int(minOverlap) and float(entry.adjPval) <= float(minAdjPval):
+        if entry.genes != 'Genes' and int(entry.overlapGenes[:entry.overlapGenes.find('_')]) >= int(minOverlap) and float(entry.adjPval) <= float(minAdjPval):
             worksheet.write(row , 0 , entry.geneSet)
             worksheet.write(row , 1 , entry.term)
-            worksheet.write(row , 2 , str(entry.overlapGenes)+'_'+str(module.numGenes))
+            worksheet.write_string(row , 2 , str(entry.overlapGenes))
             worksheet.write(row , 3 , entry.pval)
             worksheet.write(row , 4 , entry.zscore)
             worksheet.write(row , 5 , entry.adjPval)
@@ -187,8 +205,8 @@ for module in modules:
             row += 1
     print '%s written.' % module.name
 
+#Close ifile and ofile
 print '\nSaving %s...' % oFilePath
-
 ifile.close()
 ofile.close()
 
