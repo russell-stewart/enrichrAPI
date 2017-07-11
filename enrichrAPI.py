@@ -20,6 +20,7 @@ import sys
 import getopt
 import operator
 import xlsxwriter
+import time
 
 #Stores all data associated with one result from a database. toString method outputs to CSV-style format.
 class Entry():
@@ -46,7 +47,6 @@ class Module():
         self.numGenes += 1
     def toString(self):
         return('Module Name: %s\nNum. Genes:%d\n%s' % (self.name , self.numGenes , self.geneString))
-
 
 #this will be appended to become a database of all Modules
 modules = []
@@ -148,14 +148,31 @@ for module in modules:
         print('Searching %s...' % geneSetLibrary)
 
         url = 'http://amp.pharm.mssm.edu/Enrichr/export?userListId=%s&filename=%s&backgroundType=%s' % (uploadData.get('userListId') , 'exportResults' , geneSetLibrary)
+        time.sleep(5)
         response = requests.get(url)
         if not response.ok:
+            ofile.close()
+            print(response.status_code)
+            print(response.text)
             raise Exception('Error searching %s' % geneSetLibrary)
 
+        #parse response into a string and remove any non-ascii characters, replacing them with ' '
+        #(we were having some issues with reactome_2016 throwing us non-unicode characters lol)
         fileBody = ''
-        for chunk in response.iter_content(chunk_size=1024):
+        for chunk in response.iter_content(chunk_size=10):
             if chunk:
-                fileBody += chunk
+                try:
+                    chunk.decode('utf_8')
+                    fileBody += chunk
+                except:
+                    print("  Non-ascii characters detected. I'll fix it...")
+                    x = ''
+                    for char in chunk:
+                        if ord(char) > 127:
+                            x += ' '
+                        else:
+                            x += char
+                    fileBody += x
 
         shouldLoop = 1
         while shouldLoop:
