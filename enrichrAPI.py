@@ -109,7 +109,7 @@ ofile = xlsxwriter.Workbook(oFilePath)
 
 #go through ENRICHR API dance once per module, and add enriched data to ofile
 for module in modules:
-    print '\nEnriching module %s' % module.name
+    print('\nEnriching module %s' % module.name)
 
     #Worksheet setup
     worksheet = ofile.add_worksheet(module.name)
@@ -203,11 +203,11 @@ for module in modules:
             worksheet.write(row , 6 , entry.score)
             worksheet.write(row , 7 , entry.genes)
             row += 1
-    print '%s written.' % module.name
+    print('%s written.' % module.name)
 
 #Close ifile and ofile
-print '\nSaving %s...' % oFilePath
+print('\nSaving %s...' % oFilePath)
 ifile.close()
 ofile.close()
 
-print '\n\n%s written. All done!' % oFilePath
+print('\n\n%s written. All done!' % oFilePath)
