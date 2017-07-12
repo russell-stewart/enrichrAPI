@@ -70,8 +70,9 @@ for opt , arg in opts[0]:
         oFilePath = arg
     elif opt == '--libraries':
         libraryFile = open(arg , 'r')
-        for line in libraryFile:
-            geneSetLibraries.append(line[:line.find('\n')])
+	geneSetLibraries = [line.rstrip('\n') for line in open(arg, 'r')]
+#        for line in libraryFile:
+#            geneSetLibraries.append(line[:line.find('\n')])     
     elif opt == '--minOverlap':
         minOverlap = arg
     elif opt == '--minAdjPval':
