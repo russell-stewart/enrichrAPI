@@ -72,7 +72,7 @@ for opt , arg in opts[0]:
         libraryFile = open(arg , 'r')
 	geneSetLibraries = [line.rstrip('\n') for line in open(arg, 'r')]
 #        for line in libraryFile:
-#            geneSetLibraries.append(line[:line.find('\n')])     
+#            geneSetLibraries.append(line[:line.find('\n')])
     elif opt == '--minOverlap':
         minOverlap = arg
     elif opt == '--minAdjPval':
@@ -149,18 +149,26 @@ for module in modules:
         print('Searching %s...' % geneSetLibrary)
 
         url = 'http://amp.pharm.mssm.edu/Enrichr/export?userListId=%s&filename=%s&backgroundType=%s' % (uploadData.get('userListId') , 'exportResults' , geneSetLibrary)
-        time.sleep(5)
         response = requests.get(url)
         if not response.ok:
-            ofile.close()
-            print(response.status_code)
-            print(response.text)
-            raise Exception('Error searching %s' % geneSetLibrary)
+            # ofile.close()
+            # print(response.status_code)
+            # print(response.text)
+            print('  Error searching %s' % geneSetLibrary)
+            index = geneSetLibrary.find('2017')
+            if index > -1:
+                geneSetLibrary = geneSetLibrary[:index] + '2015'
+                print('  Trying %s instead...' % geneSetLibrary)
+                url = 'http://amp.pharm.mssm.edu/Enrichr/export?userListId=%s&filename=%s&backgroundType=%s' % (uploadData.get('userListId') , 'exportResults' , geneSetLibrary)
+                response = requests.get(url)
+                if not response.ok:
+                    raise Exception("Couldn't search %s in 2017 or 2015." % geneSetLibrary)
+
 
         #parse response into a string and remove any non-ascii characters, replacing them with ' '
         #(we were having some issues with reactome_2016 throwing us non-unicode characters lol)
         fileBody = ''
-        for chunk in response.iter_content(chunk_size=10):
+        for chunk in response.iter_content(chunk_size=1024):
             if chunk:
                 try:
                     chunk.decode('utf_8')
