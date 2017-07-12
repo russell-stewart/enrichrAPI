@@ -48,6 +48,60 @@ class Module():
     def toString(self):
         return('Module Name: %s\nNum. Genes:%d\n%s' % (self.name , self.numGenes , self.geneString))
 
+#Reads the text of the HTTP response (which returns a .txt file), removes any
+#non-ascii characters, then parses the response into individual Entry classes and
+#appends these to entries
+#inputs:
+#response: the response from the API GET call
+#geneSetLibrary: the name of the library (to put in the spreadsheet)
+#entries: the instance of xlswriter for the ouptut file
+def parseResults(response , geneSetLibrary , entries):
+    #parse response into a string and remove any non-ascii characters, replacing them with ' '
+    #(we were having some issues with reactome_2016 throwing us non-unicode characters lol)
+    fileBody = ''
+    for chunk in response.iter_content(chunk_size=1024):
+        if chunk:
+            try:
+                chunk.decode('utf_8')
+                fileBody += chunk
+            except:
+                print("  Non-ascii characters detected. I'll fix it...")
+                x = ''
+                for char in chunk:
+                    if ord(char) > 127:
+                        x += ' '
+                    else:
+                        x += char
+                fileBody += x
+
+    shouldLoop = 1
+    while shouldLoop:
+        term = fileBody[:fileBody.find('\t')]
+        fileBody = fileBody[(fileBody.find('\t') + 1):]
+        overlap = fileBody[:fileBody.find('\t')]
+        overlap = overlap[:overlap.find('/')] + '_' + overlap[(overlap.find('/') + 1):]
+        fileBody = fileBody[(fileBody.find('\t') + 1):]
+        Pval = fileBody[:fileBody.find('\t')]
+        fileBody = fileBody[(fileBody.find('\t') + 1):]
+        adjPval = fileBody[:fileBody.find('\t')]
+        fileBody = fileBody[(fileBody.find('\t') + 1):]
+        oldPval = fileBody[:fileBody.find('\t')]
+        fileBody = fileBody[(fileBody.find('\t') + 1):]
+        oldAdjPval = fileBody[:fileBody.find('\t')]
+        fileBody = fileBody[(fileBody.find('\t') + 1):]
+        Zscore = fileBody[:fileBody.find('\t')]
+        fileBody = fileBody[(fileBody.find('\t') + 1):]
+        score = fileBody[:fileBody.find('\t')]
+        fileBody = fileBody[(fileBody.find('\t') + 1):]
+        genes = fileBody[:fileBody.find('\n')]
+        fileBody = fileBody[(fileBody.find('\n') + 1):]
+        if len(fileBody) > 1:
+            shouldLoop = True
+        else:
+            shouldLoop = False
+        newEntry = Entry(geneSetLibrary , term , overlap , Pval , Zscore , adjPval , score , genes)
+        entries.append(newEntry)
+
 #this will be appended to become a database of all Modules
 modules = []
 
@@ -147,66 +201,25 @@ for module in modules:
 
         url = 'http://amp.pharm.mssm.edu/Enrichr/export?userListId=%s&filename=%s&backgroundType=%s' % (uploadData.get('userListId') , 'exportResults' , geneSetLibrary)
         response = requests.get(url)
+        #Attempts to search a 2015 version instead of the 20-- version if one
+        #library search fails. If the older search fails too, it skips over
+        #that module/library combination and moves on.
         if not response.ok:
-            # ofile.close()
-            # print(response.status_code)
-            # print(response.text)
             print('  Error searching %s' % geneSetLibrary)
-            index = geneSetLibrary.find('2017')
+            index = geneSetLibrary.find('20')
             if index > -1:
                 geneSetLibrary = geneSetLibrary[:index] + '2015'
                 print('  Trying %s instead...' % geneSetLibrary)
                 url = 'http://amp.pharm.mssm.edu/Enrichr/export?userListId=%s&filename=%s&backgroundType=%s' % (uploadData.get('userListId') , 'exportResults' , geneSetLibrary)
                 response = requests.get(url)
                 if not response.ok:
-                    raise Exception("Couldn't search %s in 2017 or 2015." % geneSetLibrary)
-
-
-        #parse response into a string and remove any non-ascii characters, replacing them with ' '
-        #(we were having some issues with reactome_2016 throwing us non-unicode characters lol)
-        fileBody = ''
-        for chunk in response.iter_content(chunk_size=1024):
-            if chunk:
-                try:
-                    chunk.decode('utf_8')
-                    fileBody += chunk
-                except:
-                    print("  Non-ascii characters detected. I'll fix it...")
-                    x = ''
-                    for char in chunk:
-                        if ord(char) > 127:
-                            x += ' '
-                        else:
-                            x += char
-                    fileBody += x
-
-        shouldLoop = 1
-        while shouldLoop:
-            term = fileBody[:fileBody.find('\t')]
-            fileBody = fileBody[(fileBody.find('\t') + 1):]
-            overlap = fileBody[:fileBody.find('\t')]
-            overlap = overlap[:overlap.find('/')] + '_' + overlap[(overlap.find('/') + 1):]
-            fileBody = fileBody[(fileBody.find('\t') + 1):]
-            Pval = fileBody[:fileBody.find('\t')]
-            fileBody = fileBody[(fileBody.find('\t') + 1):]
-            adjPval = fileBody[:fileBody.find('\t')]
-            fileBody = fileBody[(fileBody.find('\t') + 1):]
-            oldPval = fileBody[:fileBody.find('\t')]
-            fileBody = fileBody[(fileBody.find('\t') + 1):]
-            oldAdjPval = fileBody[:fileBody.find('\t')]
-            fileBody = fileBody[(fileBody.find('\t') + 1):]
-            Zscore = fileBody[:fileBody.find('\t')]
-            fileBody = fileBody[(fileBody.find('\t') + 1):]
-            score = fileBody[:fileBody.find('\t')]
-            fileBody = fileBody[(fileBody.find('\t') + 1):]
-            genes = fileBody[:fileBody.find('\n')]
-            fileBody = fileBody[(fileBody.find('\n') + 1):]
-            if len(fileBody) > 1:
-                shouldLoop = True
+                    print("Couldn't search %s (an older version). Skipping." % geneSetLibrary)
+                else:
+                    parseResults(response , geneSetLibrary , entries)
             else:
-                shouldLoop = False
-            newEntry = Entry(geneSetLibrary , term , overlap , Pval , Zscore , adjPval , score , genes)
-            entries.append(newEntry)
+                print('  Could not search a previous version of %s. Skipping.' % geneSetLibrary)
+        else:
+            parseResults(response , geneSetLibrary , entries)
 
     print('Libraries searched.')
 
@@ -217,14 +230,14 @@ for module in modules:
     row = 1
     for entry in sortedEntries:
         if entry.genes != 'Genes' and int(entry.overlapGenes[:entry.overlapGenes.find('_')]) >= int(minOverlap) and float(entry.adjPval) <= float(minAdjPval):
-            worksheet.write(row , 0 , entry.geneSet)
-            worksheet.write(row , 1 , entry.term)
+            worksheet.write_string(row , 0 , entry.geneSet)
+            worksheet.write_string(row , 1 , entry.term)
             worksheet.write_string(row , 2 , str(entry.overlapGenes))
-            worksheet.write(row , 3 , entry.pval)
-            worksheet.write(row , 4 , entry.zscore)
-            worksheet.write(row , 5 , entry.adjPval)
-            worksheet.write(row , 6 , entry.score)
-            worksheet.write(row , 7 , entry.genes)
+            worksheet.write_number(row , 3 , float(entry.pval))
+            worksheet.write_number(row , 4 , float(entry.zscore))
+            worksheet.write_number(row , 5 , float(entry.adjPval))
+            worksheet.write_number(row , 6 , float(entry.score))
+            worksheet.write_string(row , 7 , entry.genes)
             row += 1
     print('%s written.' % module.name)
 
