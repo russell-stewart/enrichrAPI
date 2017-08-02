@@ -30,15 +30,19 @@ class Entry():
         self.geneSet = geneSet
         self.term = term
         self.overlapGenes = overlapGenes
-        #overlapGenesInt is only used for sorting purposes.
+        #Only cast if the entry isn't a header column in the csv sent by Enrichr
         if overlapGenes.find('Overla') == -1:
-            self.overlapGenesInt = int(overlapGenes[:overlapGenes.find('_')])
+            self.overlapGenesInt = int(overlapGenes[:overlapGenes.find('_')])#overlapGenesInt is only used for sorting purposes.
+            self.pval = float(pval)
+            self.zscore = float(zscore)
+            self.adjPval = float(adjPval)
+            self.score = float(score)
         else:
             self.overlapGenesInt = None
-        self.pval = pval
-        self.zscore = zscore
-        self.adjPval = adjPval
-        self.score = score
+            self.pval = None
+            self.zscore = None
+            self.adjPval = None
+            self.score = None
         self.genes = genes
     def toString(self):
         return(self.geneSet + ',' + self.term + ',' + str(self.overlapGenes) + ',' + str(self.pval) + ',' + str(self.zscore) + ',' + str(self.adjPval) + ',' + str(self.score) + ',' + str(self.genes) + '\n')
