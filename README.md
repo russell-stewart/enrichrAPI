@@ -21,15 +21,14 @@ Feel free to change the name of this file as long as you change the console call
 
 `--sort`: the attribute by which to sort the results. Available attributes are listed below:
 
-  -combinedScore: (DEFAULT) sort high-to-low by the combined score of each result
-  -geneSet: sort alphabetically by the gene set database (i.e. library) that each result was found in
-  -term: sort alphabetically by term
-  -overlapGenes: sort high-to-low by the number of genes in the module overlapping with the result pathway
-  -pval: sort low-to-high by P-value
-  -zscore: sort low-to-high by Z-score
-  -adjPval: sort low-to-high by adjusted P-value
-  -genes: sort alphabetically by the list of genes involved in the result pathway
-  (I have no clue why this would be helpful, but why not?)
+-combinedScore: (DEFAULT) sort high-to-low by the combined score of each result
+-geneSet: sort alphabetically by the gene set database (i.e. library) that each result was found in
+-term: sort alphabetically by term
+-overlapGenes: sort high-to-low by the number of genes in the module overlapping with the result pathway
+-pval: sort low-to-high by P-value
+-zscore: sort low-to-high by Z-score
+-adjPval: sort low-to-high by adjusted P-value
+-genes: sort alphabetically by the list of genes involved in the result pathway (I have no clue why this would be helpful, but why not?)
 
 `--minOverlap`: the minimum number of overlapping genes you want to filter your results by. optional: default is 5
 
