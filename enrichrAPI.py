@@ -6,12 +6,14 @@
 #the website.
 #
 #PROGRAM OPTIONS:
-#python enrichrAPI.py --ifile <iFilePath> --ofile <oFilePath> --libraries <libraryFilePath> [--minOverlap] <int>] [--minAdjPval <int>]
+#python enrichrAPI.py --ifile <iFilePath> --ofile <oFilePath> --libraries <libraryFilePath> [--sort <attribute>] [--minOverlap] <int>] [--minAdjPval <int>]
 #--ifile: the file path for the input (.txt) file. should have two columns: first has gene names, second has corresponding modules
 #--ofile: the file path for the output (.xlsx) file with the Enrichr results
 #--libraries: the Enrichr-compatible gene sets you want to search through, stored on seperate lines in a .txt file.
 #--minOverlap: the minimum number of overlapping genes you want to filter your results by. optional: default is 5
 #--minAdjPval: genes with p values below this number will be removed from the results. optional: default is .05
+#--sort: Sort results by one of following attributes:
+#"geneSet" , "term" , "overlapGenes" , "pval" , "zscore" , "adjPval" , "genes" , "combinedScore" (default)
 #
 
 import json
@@ -28,6 +30,11 @@ class Entry():
         self.geneSet = geneSet
         self.term = term
         self.overlapGenes = overlapGenes
+        #overlapGenesInt is only used for sorting purposes.
+        if overlapGenes.find('Overla') == -1:
+            self.overlapGenesInt = int(overlapGenes[:overlapGenes.find('_')])
+        else:
+            self.overlapGenesInt = None
         self.pval = pval
         self.zscore = zscore
         self.adjPval = adjPval
@@ -110,13 +117,14 @@ postURL = 'http://amp.pharm.mssm.edu/Enrichr/addList'
 
 #Parses options given with the program call from terminal.
 #See comment at top of file for option list.
-opts = getopt.getopt(sys.argv[1:] , '' , ['ifile=' , 'ofile=' , 'libraries=' , 'minOverlap=' , 'minAdjPval='])
+opts = getopt.getopt(sys.argv[1:] , '' , ['ifile=' , 'ofile=' , 'libraries=' , 'minOverlap=' , 'minAdjPval=' , 'sort='])
 
 iFilePath = None
 oFilePath = None
 geneSetLibraries = []
 minOverlap = None
 minAdjPval = None
+sort = 'combinedScore'
 for opt , arg in opts[0]:
     if opt == '--ifile':
         iFilePath = arg
@@ -128,6 +136,8 @@ for opt , arg in opts[0]:
         minOverlap = arg
     elif opt == '--minAdjPval':
         minAdjPval = arg
+    elif opt == '--sort':
+        sort = arg
 
 if minOverlap is None:
     minOverlap = 5
@@ -223,8 +233,24 @@ for module in modules:
 
     print('Libraries searched.')
 
-    #Sort entries by their combined score
-    sortedEntries = sorted(entries, key=lambda entry: entry.score , reverse=True)
+    #Sort entries by the user-specified attribute
+    #"geneSet" , "term" , "overlapGenes" , "pval" , "zscore" , "adjPval" , "genes" , "combinedScore" (default)
+    if sort == 'geneSet' or sort == 'geneset' or sort == 'GeneSet':
+        sortedEntries = sorted(entries , key=lambda entry: entry.geneSet)
+    elif sort == 'term' or sort == 'Term':
+        sortedEntries = sorted(entries , key=lambda entry: entry.term)
+    elif sort == 'overlapGenes' or sort == 'OverlapGenes' or sort == 'overlapgenes':
+        sortedEntries = sorted(entries , key=lambda entry: entry.overlapGenesInt , reverse=True)
+    elif sort == 'pval' or sort == 'Pval':
+        sortedEntries = sorted(entries , key=lambda entry: entry.pval)
+    elif sort == 'zscore' or sort == 'Zscore':
+        sortedEntries = sorted(entries , key=lambda entry: entry.zscore)
+    elif sort == 'adjPval' or sort == 'adjustedPval' or sort == 'AdjustedPval' or sort == 'AdjPval' or sort == 'adjustedpval' or sort == 'adjpval':
+        sortedEntries = sorted(entries , key=lambda entry: entry.adjPval)
+    elif sort == 'genes' or sort == 'Genes':
+        sortedEntries = sorted(entries , key=lambda entry: entry.genes)
+    else:#sort by combined score (default)
+        sortedEntries = sorted(entries, key=lambda entry: entry.score , reverse=True)
 
     #Iterate over entries and print each entry
     row = 1

@@ -10,7 +10,6 @@ DIAPH2	cluster0
 DNAH3	cluster0
 AGBL4	cluster0
 CFAP43	cluster0
-gene	module
 PACRG	cluster0
 DNAH11	cluster0
 CDHR3	cluster0
