@@ -132,7 +132,6 @@ def parseResults(response , geneSetLibrary , entries):
         newEntry = Entry(geneSetLibrary , term , overlap , Pval , Zscore , adjPval , score , genes)
         entries.append(newEntry)
 
-<<<<<<< HEAD
 #this function runs named entity recognition and generates a summary sheet
 #if the --sumarize option is used.
 #def namedEntityRecognition(entries , ofile , nerPath , threads , workbook):
@@ -170,7 +169,6 @@ if ner:
         print '\n' + command + '\n'
         returncode = os.system(command)
         os.chdir(cwd)
->>>>>>> parent of 519d2ab... should be functional, but xlsxwriter crashes on ofile.close() if summary
 
 
 #this will be appended to become a database of all Modules
@@ -335,8 +333,6 @@ for module in modules:
     print('%s written.' % module.name)
     if ner:
         lotsOfEntries[module.name] = [entry.term for entry in entries]
-<<<<<<< HEAD
-<<<<<<< HEAD
     print('%s written.' % module.name)
 
 #run named entity recognition/generate summary sheet if --summary is specified
@@ -443,17 +439,14 @@ if ner:
     os.chdir(new_ofilepath)
     os.system('rm -rf enrichrAPI_temp')
 
-=======
->>>>>>> parent of 519d2ab... should be functional, but xlsxwriter crashes on ofile.close() if summary
-=======
->>>>>>> parent of 519d2ab... should be functional, but xlsxwriter crashes on ofile.close() if summary
+if ner:
+    namedEntityRecognition(lotsOfEntries , oFilePath , '/Users/russellstewart/Documents/NationalJewish/Seibold/neji' , 4)
+
 
 #Close ifile and ofile
 print('\nSaving %s...' % oFilePath)
 ifile.close()
 ofile.close()
 
-if ner:
-    namedEntityRecognition(lotsOfEntries , oFilePath , '/Users/russellstewart/Documents/NationalJewish/Seibold/neji' , 4)
 
 print('\n\n%s written. All done!' % oFilePath)
