@@ -15,14 +15,17 @@
 #--sort: Sort results by one of following attributes:
 #"geneSet" , "term" , "overlapGenes" , "pval" , "zscore" , "adjPval" , "genes" , "combinedScore" (default)
 #
+ner = True
 
 import json
 import requests
 import sys
+import os
 import getopt
 import operator
 import xlsxwriter
 import time
+import operator
 
 #Stores all data associated with one result from a database. toString method outputs to CSV-style format.
 class Entry():
@@ -58,6 +61,22 @@ class Module():
         self.numGenes += 1
     def toString(self):
         return('Module Name: %s\nNum. Genes:%d\n%s' % (self.name , self.numGenes , self.geneString))
+
+# creates new directory
+# args:
+#       dir_path - directory location of new folder
+#       dir_name - name of new directory
+# returns:
+#       newly created directory
+def makeDir(dir_path, dir_name):
+    print 'dir path:' + dir_path
+    print 'dir name:' + dir_name
+    new_dir = os.path.join(dir_path,dir_name)
+    print new_dir
+    if not os.path.isdir(new_dir):
+            os.mkdir(new_dir)
+            return(new_dir)
+    return(new_dir)
 
 #Reads the text of the HTTP response (which returns a .txt file), removes any
 #non-ascii characters, then parses the response into individual Entry classes and
@@ -112,6 +131,41 @@ def parseResults(response , geneSetLibrary , entries):
             shouldLoop = False
         newEntry = Entry(geneSetLibrary , term , overlap , Pval , Zscore , adjPval , score , genes)
         entries.append(newEntry)
+
+if ner:
+    def namedEntityRecognition(entries , ofile , nerPath , threads):
+        i = 0
+        loop = True
+        index = -1
+        while loop:
+            if ofile[i] == '/':
+                index = i
+            i += 1
+            if i >= len(ofile):
+                loop = False
+        ofilepath = ofile[:index]
+        makeDir(ofilepath , 'enrichrAPI_temp')
+        for module , terms in entries.items():
+            terms = '\n'.join(terms)
+            temp = ''
+            for i in range(0 , len(terms)):
+                if terms[i] == '_':
+                    temp += ' '
+                else:
+                    temp += terms[i]
+
+            file = open('%s/enrichrAPI_temp/%s.txt' % (ofilepath , module) , 'w')
+            file.write(temp)
+            file.close()
+
+        print 'Running NER on terms...'
+        cwd = os.getcwd()
+        os.chdir(nerPath)
+        command = '%s/neji.sh -i %s -o %s -d %s/resources/dictionaries -m %s/resources/models -t %d -if RAW -of JSON' %(nerPath , ofilepath + '/enrichrAPI_temp' , ofilepath + '/enrichrAPI_temp' , nerPath , nerPath , threads)
+        print '\n' + command + '\n'
+        returncode = os.system(command)
+        os.chdir(cwd)
+
 
 #this will be appended to become a database of all Modules
 modules = []
@@ -172,6 +226,9 @@ for line in ifile:
             modules.append(newMod)
 
 ofile = xlsxwriter.Workbook(oFilePath)
+
+if ner:
+    lotsOfEntries = {}
 
 #go through ENRICHR API dance once per module, and add enriched data to ofile
 for module in modules:
@@ -270,10 +327,15 @@ for module in modules:
             worksheet.write_string(row , 7 , entry.genes)
             row += 1
     print('%s written.' % module.name)
+    if ner:
+        lotsOfEntries[module.name] = [entry.term for entry in entries]
 
 #Close ifile and ofile
 print('\nSaving %s...' % oFilePath)
 ifile.close()
 ofile.close()
+
+if ner:
+    namedEntityRecognition(lotsOfEntries , oFilePath , '/Users/russellstewart/Documents/NationalJewish/Seibold/neji' , 4)
 
 print('\n\n%s written. All done!' % oFilePath)
