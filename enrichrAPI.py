@@ -134,103 +134,8 @@ def parseResults(response , geneSetLibrary , entries):
 
 #this function runs named entity recognition and generates a summary sheet
 #if the --sumarize option is used.
-def namedEntityRecognition(entries , ofile , nerPath , threads , workbook):
-    #extract a file path to be used for temporary output files from ofile's
-    #path
-    i = 0
-    loop = True
-    index = -1
-    while loop:
-        if ofile[i] == '/':
-            index = i
-        i += 1
-        if i >= len(ofile):
-            loop = False
-    new_ofilepath = ofile[:index]
-    makeDir(new_ofilepath , 'enrichrAPI_temp')
-    #write each module's terms to its own text file (for use with neji)
-    for module , terms in entries.items():
-        terms = '\n'.join(terms)
-        temp = ''
-        for i in range(0 , len(terms)):
-            if terms[i] == '_':
-                temp += ' '
-            else:
-                temp += terms[i]
+#def namedEntityRecognition(entries , ofile , nerPath , threads , workbook):
 
-        file = open('%s/enrichrAPI_temp/%s.txt' % (new_ofilepath , module) , 'w')
-        file.write(temp)
-        file.close()
-
-    #run neji named entity recognition on the files generated above
-    print '\nRunning NER on terms...'
-    cwd = os.getcwd()
-    os.chdir(nerPath)
-    command = '%s/neji.sh -i %s -o %s -d %s/resources/dictionaries -m %s/resources/models -t %d -if RAW -of JSON' %(nerPath , new_ofilepath + '/enrichrAPI_temp' , new_ofilepath + '/enrichrAPI_temp' , nerPath , nerPath , threads)
-    print '\n' + command + '\n'
-    returncode = os.system(command)
-
-    #sort through the neji output files for the most common classifications
-    #in each module's enrichr term corpus
-    print 'Opening NER output files...'
-    os.chdir(new_ofilepath + '/enrichrAPI_temp')
-    k = 0
-    j = 0
-    worksheet = workbook.add_worksheet('Summary')
-
-    #get only neji's output (json) files
-    filenames = [filename for filename in os.listdir(os.getcwd()) if filename.find('json') > -1]
-    print 'Generating summary sheet...'
-    #iterate over each file (1 file = 1 module)
-    for filename in filenames:
-        classifications = {}
-        nerFile = json.loads(open(filename , 'r').read())
-        #put all classifications from the json file into the classifications
-        #database.
-        for sentence in nerFile:
-            for term in sentence['terms']:
-                classification = term['ids']
-                i = 0
-                while i < len(classification):
-                    if classification[i] == ':':
-                        classification = classification[(i + 1):]
-                        i = -1
-                    if classification[i] == '|' or classification[i] == ')':
-                        classification = classification[:i]
-                        i = len(classification)
-                    i+= 1
-                if not classification in classifications:
-                    classifications[classification] = {term['text'] : 1}
-                else:
-                    if not term['text'] in classifications[classification]:
-                        classifications[classification][term['text']] = 1
-                    else:
-                        classifications[classification][term['text']] += 1
-        #write the name of the current module to the file
-        worksheet.write(k , j , filename[:filename.find('.')])
-        k += 1
-        #iterate over the 3 classifications given by neji in classications {}
-        #(genes, anatomy, and diseases)
-        for classification , terms in classifications.items():
-            #write type of classification (genes, anatomy, or diseases)
-            if classification == 'PRGE':
-                classification = 'genes'
-            elif classification == 'ANAT':
-                classification = 'anatomy'
-            elif classification == 'DISO':
-                classification = 'diseases'
-            worksheet.write(k , j , classification)
-            #write the 10 most-mentioned classifications
-            for term in sorted(terms , key = operator.itemgetter(1) , reverse = True):
-                j += 1
-                worksheet.write(k  , j , term)
-                if j > 11:
-                    break
-            k += 1
-            j = 0
-    #remove all of the temp files
-    os.chdir(new_ofilepath)
-    os.system('rm -rf enrichrAPI_temp')
 
 
 #this will be appended to become a database of all Modules
@@ -401,7 +306,108 @@ for module in modules:
 
 #run named entity recognition/generate summary sheet if --summary is specified
 if ner:
-    namedEntityRecognition(lotsOfEntries , oFilePath , '/Users/russellstewart/Documents/NationalJewish/Seibold/neji' , 4 , ofile)
+    #namedEntityRecognition(lotsOfEntries , oFilePath , '/Users/russellstewart/Documents/NationalJewish/Seibold/neji' , 4 , ofile)
+    entries = lotsOfEntries
+    ofile = oFilePath
+    nerPath = '/Users/russellstewart/Documents/NationalJewish/Seibold/neji'
+    threads = 4
+    #extract a file path to be used for temporary output files from ofile's
+    #path
+    i = 0
+    loop = True
+    index = -1
+    while loop:
+        if ofile[i] == '/':
+            index = i
+        i += 1
+        if i >= len(ofile):
+            loop = False
+    new_ofilepath = ofile[:index]
+    makeDir(new_ofilepath , 'enrichrAPI_temp')
+    #write each module's terms to its own text file (for use with neji)
+    for module , terms in entries.items():
+        terms = '\n'.join(terms)
+        temp = ''
+        for i in range(0 , len(terms)):
+            if terms[i] == '_':
+                temp += ' '
+            else:
+                temp += terms[i]
+
+        file = open('%s/enrichrAPI_temp/%s.txt' % (new_ofilepath , module) , 'w')
+        file.write(temp)
+        file.close()
+
+    #run neji named entity recognition on the files generated above
+    print '\nRunning NER on terms...'
+    cwd = os.getcwd()
+    os.chdir(nerPath)
+    command = '%s/neji.sh -i %s -o %s -d %s/resources/dictionaries -m %s/resources/models -t %d -if RAW -of JSON' %(nerPath , new_ofilepath + '/enrichrAPI_temp' , new_ofilepath + '/enrichrAPI_temp' , nerPath , nerPath , threads)
+    print '\n' + command + '\n'
+    returncode = os.system(command)
+
+    #sort through the neji output files for the most common classifications
+    #in each module's enrichr term corpus
+    print 'Opening NER output files...'
+    os.chdir(new_ofilepath + '/enrichrAPI_temp')
+    k = 0
+    j = 0
+    worksheet = ofile.add_worksheet('Summary')
+
+    #get only neji's output (json) files
+    filenames = [filename for filename in os.listdir(os.getcwd()) if filename.find('json') > -1]
+    print 'Generating summary sheet...'
+    #iterate over each file (1 file = 1 module)
+    for filename in filenames:
+        classifications = {}
+        nerFile = json.loads(open(filename , 'r').read())
+        #put all classifications from the json file into the classifications
+        #database.
+        for sentence in nerFile:
+            for term in sentence['terms']:
+                classification = term['ids']
+                i = 0
+                while i < len(classification):
+                    if classification[i] == ':':
+                        classification = classification[(i + 1):]
+                        i = -1
+                    if classification[i] == '|' or classification[i] == ')':
+                        classification = classification[:i]
+                        i = len(classification)
+                    i+= 1
+                if not classification in classifications:
+                    classifications[classification] = {term['text'] : 1}
+                else:
+                    if not term['text'] in classifications[classification]:
+                        classifications[classification][term['text']] = 1
+                    else:
+                        classifications[classification][term['text']] += 1
+        #write the name of the current module to the file
+        worksheet.write(k , j , filename[:filename.find('.')])
+        k += 1
+        #iterate over the 3 classifications given by neji in classications {}
+        #(genes, anatomy, and diseases)
+        for classification , terms in classifications.items():
+            #write type of classification (genes, anatomy, or diseases)
+            if classification == 'PRGE':
+                classification = 'genes'
+            elif classification == 'ANAT':
+                classification = 'anatomy'
+            elif classification == 'DISO':
+                classification = 'diseases'
+            worksheet.write(k , j , classification)
+            #write the 10 most-mentioned classifications
+            for term in sorted(terms , key = operator.itemgetter(1) , reverse = True):
+                j += 1
+                worksheet.write(k  , j , term)
+                if j > 11:
+                    break
+            k += 1
+            j = 0
+    #remove all of the temp files
+    os.chdir(new_ofilepath)
+    os.system('rm -rf enrichrAPI_temp')
+
 
 #Close ifile and ofile
 print('\nSaving %s...' % oFilePath)
