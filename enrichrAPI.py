@@ -137,7 +137,6 @@ def parseResults(response , geneSetLibrary , entries):
 #if the --sumarize option is used.
 #def namedEntityRecognition(entries , ofile , nerPath , threads , workbook):
 
-=======
 if ner:
     def namedEntityRecognition(entries , ofile , nerPath , threads):
         i = 0
@@ -337,6 +336,7 @@ for module in modules:
     if ner:
         lotsOfEntries[module.name] = [entry.term for entry in entries]
 <<<<<<< HEAD
+<<<<<<< HEAD
     print('%s written.' % module.name)
 
 #run named entity recognition/generate summary sheet if --summary is specified
@@ -443,6 +443,8 @@ if ner:
     os.chdir(new_ofilepath)
     os.system('rm -rf enrichrAPI_temp')
 
+=======
+>>>>>>> parent of 519d2ab... should be functional, but xlsxwriter crashes on ofile.close() if summary
 =======
 >>>>>>> parent of 519d2ab... should be functional, but xlsxwriter crashes on ofile.close() if summary
 
