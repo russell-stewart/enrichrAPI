@@ -15,18 +15,14 @@
 #--sort: Sort results by one of following attributes:
 #"geneSet" , "term" , "overlapGenes" , "pval" , "zscore" , "adjPval" , "genes" , "combinedScore" (default)
 #
-threads = 1
-nerPath = '/Users/russellstewart/Documents/NationalJewish/Seibold/neji'
 
 import json
 import requests
 import sys
 import os
 import getopt
-import operator
 import xlsxwriter
 import time
-import operator
 
 #Stores all data associated with one result from a database. toString method outputs to CSV-style format.
 class Entry():
@@ -134,111 +130,30 @@ def parseResults(response , geneSetLibrary , entries):
         entries.append(newEntry)
 
 #this function runs named entity recognition and generates a summary sheet
-#if the --sumarize option is used.
-def namedEntityRecognition(entries , ofilepath , nerPath , threads , ofile):
-    #extract a file path to be used for temporary output files from ofile's
-    #path
+#if the --summarize option is used.
+def summarySheet(entries , ofile):
     i = 0
-    loop = True
-    index = -1
-    while loop:
-        if ofilepath[i] == '/':
-            index = i
-        i += 1
-        if i >= len(ofilepath):
-            loop = False
-    ofiledir = ofilepath[:index]
-    makeDir(ofiledir , 'enrichrAPI_temp')
-    #write each module's terms to its own text file (for use with neji)
-    for module , terms in entries.items():
-        terms = '\n'.join(terms)
-        temp = ''
-        for i in range(0 , len(terms)):
-            if terms[i] == '_':
-                temp += ' '
-            else:
-                temp += terms[i]
-
-        file = open('%s/enrichrAPI_temp/%s.txt' % (ofiledir , module) , 'w')
-        file.write(temp)
-        file.close()
-
-    #run neji named entity recognition on the files generated above
-    print '\nRunning NER on terms...'
-    cwd = os.getcwd()
-    os.chdir(nerPath)
-    command = '%s/neji.sh -i %s -o %s -d %s/resources/dictionaries -m %s/resources/models -t %d -if RAW -of JSON' %(nerPath , ofiledir + '/enrichrAPI_temp' , ofiledir + '/enrichrAPI_temp' , nerPath , nerPath , threads)
-    print '\n' + command + '\n'
-    returncode = os.system(command)
-
-    #sort through the neji output files for the most common classifications
-    #in each module's enrichr term corpus
-    print 'Opening NER output files...'
-    os.chdir(ofiledir + '/enrichrAPI_temp')
-    k = 0
     j = 0
     worksheet = ofile.add_worksheet('Summary')
+    for module , terms in entries.items():
+        words = {}
 
-    #get only neji's output (json) files
-    filenames = [filename for filename in os.listdir(os.getcwd()) if filename.find('json') > -1]
-    print 'Generating summary sheet...'
-    #iterate over each file (1 file = 1 module)
-    for filename in filenames:
-        classifications = {}
-        nerFile = json.loads(open(filename , 'r').read())
-        #put all classifications from the json file into the classifications
-        #database.
-        for sentence in nerFile:
-            for term in sentence['terms']:
-                classification = term['ids']
-                i = 0
-                while i < len(classification):
-                    if classification[i] == ':':
-                        classification = classification[(i + 1):]
-                        i = -1
-                    if classification[i] == '|' or classification[i] == ')':
-                        classification = classification[:i]
-                        i = len(classification)
-                    i+= 1
-                if not classification in classifications:
-                    classifications[classification] = {term['text'] : 1}
+        for term in terms:
+            for word in term.split(' '):
+                if not word in words:
+                    words[term] = 1
                 else:
-                    if not term['text'] in classifications[classification]:
-                        classifications[classification][term['text']] = 1
-                    else:
-                        classifications[classification][term['text']] += 1
-        #write the name of the current module to the file
-        worksheet.write(k , j , filename[:filename.find('.')])
-        k += 1
-        #iterate over the 3 classifications given by neji in classications {}
-        #(genes, anatomy, and diseases)
-        if len(classifications.items()) == 0:
-            worksheet.write(k , j , 'None')
-            k += 1
+                    words[term] += 1
+        worksheet.write(i , j , module)
+        i += 1
+        if len(words.items()) == 0:
+            worksheet.write(i , j , 'None')
         else:
-            for classification , terms in classifications.items():
-                #write type of classification (genes, anatomy, or diseases)
-                if classification == 'PRGE':
-                    classification = 'genes'
-                elif classification == 'ANAT':
-                    classification = 'anatomy'
-                elif classification == 'DISO':
-                    classification = 'diseases'
-                worksheet.write(k , j , classification)
-                #write the 10 most-mentioned classifications
-                print terms
-                print sorted(terms , key = terms.get , reverse = True)
-                print '\n'
-                for term in sorted(terms , key = terms.get , reverse = True):
-                    j += 1
-                    worksheet.write(k  , j , '%s (%d)' % (term , terms[term]))
-                    if j > 11:
-                        break
-                k += 1
-                j = 0
-    #remove all of the temp files
-    os.chdir(ofiledir)
-    os.system('rm -rf enrichrAPI_temp')
+            for word in sorted(words , key = words.get , reverse = True):
+                worksheet.write(i  , j , '%s (%d)' % (word , words[word]))
+                j += 1
+        i += 1
+        j = 0
 
 
 #this will be appended to become a database of all Modules
@@ -249,14 +164,14 @@ postURL = 'http://amp.pharm.mssm.edu/Enrichr/addList'
 
 #Parses options given with the program call from terminal.
 #See comment at top of file for option list.
-opts = getopt.getopt(sys.argv[1:] , '' , ['ifile=' , 'ofile=' , 'libraries=' , 'minOverlap=' , 'minAdjPval=' , 'sort=' , 'sumarize' , 'threads=' , 'nerPath='])
+opts = getopt.getopt(sys.argv[1:] , '' , ['ifile=' , 'ofile=' , 'libraries=' , 'minOverlap=' , 'minAdjPval=' , 'sort=' , 'summarize'])
 
 iFilePath = None
 oFilePath = None
 geneSetLibraries = []
 minOverlap = None
 minAdjPval = None
-ner = False
+summary = False
 sort = 'combinedScore'
 for opt , arg in opts[0]:
     if opt == '--ifile':
@@ -271,12 +186,8 @@ for opt , arg in opts[0]:
         minAdjPval = arg
     elif opt == '--sort':
         sort = arg
-    elif opt == '--sumarize':
-        ner = True
-    elif opt == '--threads':
-        threads = int(arg)
-    elif opt == '--nerPath':
-        nerPath = arg
+    elif opt == '--summarize':
+        summary = True
 
 if minOverlap is None:
     minOverlap = 5
@@ -308,7 +219,7 @@ for line in ifile:
 
 ofile = xlsxwriter.Workbook(oFilePath)
 
-if ner:
+if summary:
     lotsOfEntries = {}
 
 #go through ENRICHR API dance once per module, and add enriched data to ofile
@@ -407,13 +318,13 @@ for module in modules:
             worksheet.write_number(row , 6 , float(entry.score))
             worksheet.write_string(row , 7 , entry.genes)
             row += 1
-    if ner:
+    if summary:
         lotsOfEntries[module.name] = [entry.term for entry in sortedEntries if entry.overlapGenesInt >= int(minOverlap) and entry.adjPval <= float(minAdjPval)]
     print('%s written.' % module.name)
 
 #run named entity recognition/generate summary sheet if --summary is specified
-if ner:
-    namedEntityRecognition(lotsOfEntries , oFilePath , nerPath , threads , ofile)
+if summary:
+    summarySheet(lotsOfEntries , ofile)
 
 
 #Close ifile and ofile
