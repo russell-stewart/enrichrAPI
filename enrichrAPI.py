@@ -15,7 +15,8 @@
 #--sort: Sort results by one of following attributes:
 #"geneSet" , "term" , "overlapGenes" , "pval" , "zscore" , "adjPval" , "genes" , "combinedScore" (default)
 #
-ner = True
+threads = 1
+nerPath = '/Users/russellstewart/Documents/NationalJewish/Seibold/neji'
 
 import json
 import requests
@@ -211,23 +212,30 @@ def namedEntityRecognition(entries , ofilepath , nerPath , threads , ofile):
         k += 1
         #iterate over the 3 classifications given by neji in classications {}
         #(genes, anatomy, and diseases)
-        for classification , terms in classifications.items():
-            #write type of classification (genes, anatomy, or diseases)
-            if classification == 'PRGE':
-                classification = 'genes'
-            elif classification == 'ANAT':
-                classification = 'anatomy'
-            elif classification == 'DISO':
-                classification = 'diseases'
-            worksheet.write(k , j , classification)
-            #write the 10 most-mentioned classifications
-            for term in sorted(terms , key = operator.itemgetter(1) , reverse = True):
-                j += 1
-                worksheet.write(k  , j , term)
-                if j > 11:
-                    break
+        if len(classifications.items()) == 0:
+            worksheet.write(k , j , 'None')
             k += 1
-            j = 0
+        else:
+            for classification , terms in classifications.items():
+                #write type of classification (genes, anatomy, or diseases)
+                if classification == 'PRGE':
+                    classification = 'genes'
+                elif classification == 'ANAT':
+                    classification = 'anatomy'
+                elif classification == 'DISO':
+                    classification = 'diseases'
+                worksheet.write(k , j , classification)
+                #write the 10 most-mentioned classifications
+                print terms
+                print sorted(terms , key = terms.get , reverse = True)
+                print '\n'
+                for term in sorted(terms , key = terms.get , reverse = True):
+                    j += 1
+                    worksheet.write(k  , j , '%s (%d)' % (term , terms[term]))
+                    if j > 11:
+                        break
+                k += 1
+                j = 0
     #remove all of the temp files
     os.chdir(ofiledir)
     os.system('rm -rf enrichrAPI_temp')
@@ -241,7 +249,7 @@ postURL = 'http://amp.pharm.mssm.edu/Enrichr/addList'
 
 #Parses options given with the program call from terminal.
 #See comment at top of file for option list.
-opts = getopt.getopt(sys.argv[1:] , '' , ['ifile=' , 'ofile=' , 'libraries=' , 'minOverlap=' , 'minAdjPval=' , 'sort=' , 'sumarize' , 'threads='])
+opts = getopt.getopt(sys.argv[1:] , '' , ['ifile=' , 'ofile=' , 'libraries=' , 'minOverlap=' , 'minAdjPval=' , 'sort=' , 'sumarize' , 'threads=' , 'nerPath='])
 
 iFilePath = None
 oFilePath = None
@@ -249,7 +257,6 @@ geneSetLibraries = []
 minOverlap = None
 minAdjPval = None
 ner = False
-threads = 1
 sort = 'combinedScore'
 for opt , arg in opts[0]:
     if opt == '--ifile':
@@ -268,6 +275,8 @@ for opt , arg in opts[0]:
         ner = True
     elif opt == '--threads':
         threads = int(arg)
+    elif opt == '--nerPath':
+        nerPath = arg
 
 if minOverlap is None:
     minOverlap = 5
@@ -388,7 +397,7 @@ for module in modules:
     #Iterate over entries and print each entry
     row = 1
     for entry in sortedEntries:
-        if entry.genes != 'Genes' and int(entry.overlapGenes[:entry.overlapGenes.find('_')]) >= int(minOverlap) and float(entry.adjPval) <= float(minAdjPval):
+        if entry.genes != 'Genes' and int(entry.overlapGenesInt) >= int(minOverlap) and float(entry.adjPval) <= float(minAdjPval):
             worksheet.write_string(row , 0 , entry.geneSet)
             worksheet.write_string(row , 1 , entry.term)
             worksheet.write_string(row , 2 , str(entry.overlapGenes))
@@ -399,12 +408,12 @@ for module in modules:
             worksheet.write_string(row , 7 , entry.genes)
             row += 1
     if ner:
-        lotsOfEntries[module.name] = [entry.term for entry in entries]
+        lotsOfEntries[module.name] = [entry.term for entry in sortedEntries if entry.overlapGenesInt >= int(minOverlap) and entry.adjPval <= float(minAdjPval)]
     print('%s written.' % module.name)
 
 #run named entity recognition/generate summary sheet if --summary is specified
 if ner:
-    namedEntityRecognition(lotsOfEntries , oFilePath , '/Users/russellstewart/Documents/NationalJewish/Seibold/neji' , threads , ofile)
+    namedEntityRecognition(lotsOfEntries , oFilePath , nerPath , threads , ofile)
 
 
 #Close ifile and ofile
