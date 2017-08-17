@@ -135,26 +135,45 @@ def summarySheet(entries , ofile):
     i = 0
     j = 0
     worksheet = ofile.add_worksheet('Summary')
+    #iterate over every module and its associated enrichr terms
     for module , terms in entries.items():
+        #this dictionary will store words and their frequencies
         words = {}
-
+        #iterate over every word in the list of terms
         for term in terms:
-            for word in term.split(' '):
-                if not word in words:
-                    words[term] = 1
-                else:
-                    words[term] += 1
+            for chunk in term.split('_'):
+                for word in chunk.split(' '):
+                    #rule-based approach to filter out articles, 'homo sapiens', etc.
+                    word.lower()
+                    if isVaid(word):
+                        #update word frequency table
+                        if not word in words:
+                            words[word] = 1
+                        else:
+                            words[word] += 1
+        #write the worksheet module name
         worksheet.write(i , j , module)
         i += 1
+        #if a module doesn't have enrichments, say so.
         if len(words.items()) == 0:
             worksheet.write(i , j , 'None')
+        #write the ten top hit words
         else:
             for word in sorted(words , key = words.get , reverse = True):
                 worksheet.write(i  , j , '%s (%d)' % (word , words[word]))
                 j += 1
+                #only write the 10 top hits
+                if j > 10:
+                    break
         i += 1
         j = 0
 
+#determines if a word is a useful word to put into the summary sheet
+def isValid(word):
+    word = word.lower()
+    #add any words you want to ignore to this list!
+    banned = ['homo' , 'sapeins' , 'of' , 'the' , 'and' , 'or' , 'to' , 'in' , 'a' , 'an' , 'it' , 'not' , 'but' , 'go:']
+    return word.find(banned) < 0
 
 #this will be appended to become a database of all Modules
 modules = []
@@ -283,6 +302,7 @@ for module in modules:
                 print('  Could not search a previous version of %s. Skipping.' % geneSetLibrary)
         else:
             parseResults(response , geneSetLibrary , entries)
+        time.sleep(1)
 
     print('Libraries searched.')
 
