@@ -11,7 +11,7 @@ Feel free to change the name of this file as long as you change the console call
 - sampleData: A folder containing a couple of test data sets.
 
 ### Calling the Script from the Console
-`python enrichrAPI.py --ifile <iFilePath> --ofile <oFilePath> --libraries <libraryFilePath> [--summarize] [--sort <attribute>] [--minOverlap] <int>] [--minAdjPval <int>]`
+`python enrichrAPI.py --ifile <iFilePath> --ofile <oFilePath> --libraries <libraryFilePath> [--summarize] [--sort <attribute>] [--minOverlap] <int>] [--minAdjPval <int>] [--sleep <float>]`
 
 `--ifile`: the file path for the input (.txt) file. should have two columns: first has gene names, second has corresponding modules
 
