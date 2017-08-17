@@ -6,12 +6,14 @@
 #the website.
 #
 #PROGRAM OPTIONS:
-#python enrichrAPI.py --ifile <iFilePath> --ofile <oFilePath> --libraries <libraryFilePath> [--sort <attribute>] [--minOverlap] <int>] [--minAdjPval <int>]
+#python enrichrAPI.py --ifile <iFilePath> --ofile <oFilePath> --libraries <libraryFilePath> [--summarize] [--sort <attribute>] [--minOverlap] <int>] [--minAdjPval <int>] [--sleep <float>]
 #--ifile: the file path for the input (.txt) file. should have two columns: first has gene names, second has corresponding modules
-#--ofile: the file path for the output (.xlsx) file with the Enrichr results
+#--ofile: the file path for the output (.xlsx) file with the Enrichr results. optional: default is False
 #--libraries: the Enrichr-compatible gene sets you want to search through, stored on seperate lines in a .txt file.
+#--summarize: Generate a summary sheet of the most common enrichment terms for each module
 #--minOverlap: the minimum number of overlapping genes you want to filter your results by. optional: default is 5
 #--minAdjPval: genes with p values below this number will be removed from the results. optional: default is .05
+#--sleep: the amount of time to pause between API requests. optional, defualt is 1 second (1).
 #--sort: Sort results by one of following attributes:
 #"geneSet" , "term" , "overlapGenes" , "pval" , "zscore" , "adjPval" , "genes" , "combinedScore" (default)
 #
@@ -129,6 +131,23 @@ def parseResults(response , geneSetLibrary , entries):
         newEntry = Entry(geneSetLibrary , term , overlap , Pval , Zscore , adjPval , score , genes)
         entries.append(newEntry)
 
+#determines if a word is a useful word to put into the summary sheet
+def isValid(word):
+    word = word.lower()
+    #add any words you want to ignore to this list!
+    #entire words
+    banned = ['of' , 'the' , 'and' , 'or' , 'to' , 'in' , 'a' , 'an' , 'it' , 'not' , 'but']
+    #components of words
+    banned1 = ['homo' , 'sapiens' , 'go:']
+    isValid = True
+    for thing in banned:
+        if word == thing:
+            isValid = False
+    for thing in banned1:
+        if word.find(thing) > -1:
+            isValid = False
+    return isValid
+
 #this function runs named entity recognition and generates a summary sheet
 #if the --summarize option is used.
 def summarySheet(entries , ofile):
@@ -145,7 +164,7 @@ def summarySheet(entries , ofile):
                 for word in chunk.split(' '):
                     #rule-based approach to filter out articles, 'homo sapiens', etc.
                     word.lower()
-                    if isVaid(word):
+                    if isValid(word):
                         #update word frequency table
                         if not word in words:
                             words[word] = 1
@@ -168,13 +187,6 @@ def summarySheet(entries , ofile):
         i += 1
         j = 0
 
-#determines if a word is a useful word to put into the summary sheet
-def isValid(word):
-    word = word.lower()
-    #add any words you want to ignore to this list!
-    banned = ['homo' , 'sapeins' , 'of' , 'the' , 'and' , 'or' , 'to' , 'in' , 'a' , 'an' , 'it' , 'not' , 'but' , 'go:']
-    return word.find(banned) < 0
-
 #this will be appended to become a database of all Modules
 modules = []
 
@@ -183,7 +195,7 @@ postURL = 'http://amp.pharm.mssm.edu/Enrichr/addList'
 
 #Parses options given with the program call from terminal.
 #See comment at top of file for option list.
-opts = getopt.getopt(sys.argv[1:] , '' , ['ifile=' , 'ofile=' , 'libraries=' , 'minOverlap=' , 'minAdjPval=' , 'sort=' , 'summarize'])
+opts = getopt.getopt(sys.argv[1:] , '' , ['ifile=' , 'ofile=' , 'libraries=' , 'minOverlap=' , 'minAdjPval=' , 'sort=' , 'summarize' , 'sleep='])
 
 iFilePath = None
 oFilePath = None
@@ -191,6 +203,7 @@ geneSetLibraries = []
 minOverlap = None
 minAdjPval = None
 summary = False
+sleepTime = 1
 sort = 'combinedScore'
 for opt , arg in opts[0]:
     if opt == '--ifile':
@@ -207,6 +220,8 @@ for opt , arg in opts[0]:
         sort = arg
     elif opt == '--summarize':
         summary = True
+    elif opt == '--sleep':
+        sleepTime = float(arg)
 
 if minOverlap is None:
     minOverlap = 5
@@ -302,7 +317,7 @@ for module in modules:
                 print('  Could not search a previous version of %s. Skipping.' % geneSetLibrary)
         else:
             parseResults(response , geneSetLibrary , entries)
-        time.sleep(1)
+        time.sleep(sleepTime)
 
     print('Libraries searched.')
 
