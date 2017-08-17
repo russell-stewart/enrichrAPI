@@ -11,13 +11,17 @@ Feel free to change the name of this file as long as you change the console call
 - sampleData: A folder containing a couple of test data sets.
 
 ### Calling the Script from the Console
-`python enrichrAPI.py --ifile <iFilePath> --ofile <oFilePath> --libraries <libraryFilePath> [--sort <attribute>] [--minOverlap] <int>] [--minAdjPval <int>]`
+`python enrichrAPI.py --ifile <iFilePath> --ofile <oFilePath> --libraries <libraryFilePath> [--summarize] [--sort <attribute>] [--minOverlap] <int>] [--minAdjPval <int>]`
 
 `--ifile`: the file path for the input (.txt) file. should have two columns: first has gene names, second has corresponding modules
 
 `--ofile`: the file path for the output (.xlsx) file with the Enrichr results
 
 `--libraries`: the Enrichr-compatible gene sets you want to search through, stored on seperate lines in a .txt file.
+
+`--summarize`: generate a summary sheet of the most common terms mentioned in the enrichments for each module
+
+`--sleep`: sleep x seconds between API calls. optional: default is 1
 
 `--sort`: the attribute by which to sort the results. Available attributes are listed below:
 
@@ -50,6 +54,14 @@ by their combined score, and written to the excel file like below:
 |Gene Set|Term|Overlap|Pval|Z Score|Adjusted Pval|Combined Score|Genes|
 |--------|----|-------|----|-------|-------------|--------------|-----|
 GO_Biological_Process_2017|positive regulation of establishment of protein localization to telomere (GO:1904851)|5_9|0.0001568284606509318113154449747526086866855621337890625|0.7731966399939594|0.01099106128395280386478294332164296065457165241241455078125|-3.4876371667942454|CCT6A;CCT2;TCP1;CCT8;CCT5
+
+Summary sheets are structured as follows (if `--summary` is specified):
+| | | | | | | | | | |
+|-|-|-|-|-|-|-|-|-|-|
+|First Module Name| | | | | | | | | |
+|Term (frequency)|Term (frequency)|Term (frequency)|Term (frequency)|Term (frequency)|Term (frequency)|Term (frequency)|Term (frequency)|Term (frequency)|Term (frequency)|
+|Second Module Name| | | | | | | | | |
+|Term (frequency)|Term (frequency)|Term (frequency)|Term (frequency)|Term (frequency)|Term (frequency)|Term (frequency)|Term (frequency)|Term (frequency)|Term (frequency)|
 
 ### Known Issues
 See the "Issues" page on this Github page for details.

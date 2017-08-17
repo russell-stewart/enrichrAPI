@@ -6,12 +6,14 @@
 #the website.
 #
 #PROGRAM OPTIONS:
-#python enrichrAPI.py --ifile <iFilePath> --ofile <oFilePath> --libraries <libraryFilePath> [--sort <attribute>] [--minOverlap] <int>] [--minAdjPval <int>]
+#python enrichrAPI.py --ifile <iFilePath> --ofile <oFilePath> --libraries <libraryFilePath> [--summarize] [--sort <attribute>] [--minOverlap] <int>] [--minAdjPval <int>] [--sleep <float>]
 #--ifile: the file path for the input (.txt) file. should have two columns: first has gene names, second has corresponding modules
-#--ofile: the file path for the output (.xlsx) file with the Enrichr results
+#--ofile: the file path for the output (.xlsx) file with the Enrichr results. optional: default is False
 #--libraries: the Enrichr-compatible gene sets you want to search through, stored on seperate lines in a .txt file.
+#--summarize: Generate a summary sheet of the most common enrichment terms for each module
 #--minOverlap: the minimum number of overlapping genes you want to filter your results by. optional: default is 5
 #--minAdjPval: genes with p values below this number will be removed from the results. optional: default is .05
+#--sleep: the amount of time to pause between API requests. optional, defualt is 1 second (1).
 #--sort: Sort results by one of following attributes:
 #"geneSet" , "term" , "overlapGenes" , "pval" , "zscore" , "adjPval" , "genes" , "combinedScore" (default)
 #
@@ -19,8 +21,8 @@
 import json
 import requests
 import sys
+import os
 import getopt
-import operator
 import xlsxwriter
 import time
 
@@ -58,6 +60,22 @@ class Module():
         self.numGenes += 1
     def toString(self):
         return('Module Name: %s\nNum. Genes:%d\n%s' % (self.name , self.numGenes , self.geneString))
+
+# creates new directory
+# args:
+#       dir_path - directory location of new folder
+#       dir_name - name of new directory
+# returns:
+#       newly created directory
+def makeDir(dir_path, dir_name):
+    print 'dir path:' + dir_path
+    print 'dir name:' + dir_name
+    new_dir = os.path.join(dir_path,dir_name)
+    print new_dir
+    if not os.path.isdir(new_dir):
+            os.mkdir(new_dir)
+            return(new_dir)
+    return(new_dir)
 
 #Reads the text of the HTTP response (which returns a .txt file), removes any
 #non-ascii characters, then parses the response into individual Entry classes and
@@ -113,6 +131,62 @@ def parseResults(response , geneSetLibrary , entries):
         newEntry = Entry(geneSetLibrary , term , overlap , Pval , Zscore , adjPval , score , genes)
         entries.append(newEntry)
 
+#determines if a word is a useful word to put into the summary sheet
+def isValid(word):
+    word = word.lower()
+    #add any words you want to ignore to this list!
+    #entire words
+    banned = ['of' , 'the' , 'and' , 'or' , 'to' , 'in' , 'a' , 'an' , 'it' , 'not' , 'but']
+    #components of words
+    banned1 = ['homo' , 'sapiens' , 'go:']
+    isValid = True
+    for thing in banned:
+        if word == thing:
+            isValid = False
+    for thing in banned1:
+        if word.find(thing) > -1:
+            isValid = False
+    return isValid
+
+#this function runs named entity recognition and generates a summary sheet
+#if the --summarize option is used.
+def summarySheet(entries , ofile):
+    i = 0
+    j = 0
+    worksheet = ofile.add_worksheet('Summary')
+    #iterate over every module and its associated enrichr terms
+    for module , terms in entries.items():
+        #this dictionary will store words and their frequencies
+        words = {}
+        #iterate over every word in the list of terms
+        for term in terms:
+            for chunk in term.split('_'):
+                for word in chunk.split(' '):
+                    #rule-based approach to filter out articles, 'homo sapiens', etc.
+                    word.lower()
+                    if isValid(word):
+                        #update word frequency table
+                        if not word in words:
+                            words[word] = 1
+                        else:
+                            words[word] += 1
+        #write the worksheet module name
+        worksheet.write(i , j , module)
+        i += 1
+        #if a module doesn't have enrichments, say so.
+        if len(words.items()) == 0:
+            worksheet.write(i , j , 'None')
+        #write the ten top hit words
+        else:
+            for word in sorted(words , key = words.get , reverse = True):
+                worksheet.write(i  , j , '%s (%d)' % (word , words[word]))
+                j += 1
+                #only write the 10 top hits
+                if j > 10:
+                    break
+        i += 1
+        j = 0
+
 #this will be appended to become a database of all Modules
 modules = []
 
@@ -121,13 +195,15 @@ postURL = 'http://amp.pharm.mssm.edu/Enrichr/addList'
 
 #Parses options given with the program call from terminal.
 #See comment at top of file for option list.
-opts = getopt.getopt(sys.argv[1:] , '' , ['ifile=' , 'ofile=' , 'libraries=' , 'minOverlap=' , 'minAdjPval=' , 'sort='])
+opts = getopt.getopt(sys.argv[1:] , '' , ['ifile=' , 'ofile=' , 'libraries=' , 'minOverlap=' , 'minAdjPval=' , 'sort=' , 'summarize' , 'sleep='])
 
 iFilePath = None
 oFilePath = None
 geneSetLibraries = []
 minOverlap = None
 minAdjPval = None
+summary = False
+sleepTime = 1
 sort = 'combinedScore'
 for opt , arg in opts[0]:
     if opt == '--ifile':
@@ -142,6 +218,10 @@ for opt , arg in opts[0]:
         minAdjPval = arg
     elif opt == '--sort':
         sort = arg
+    elif opt == '--summarize':
+        summary = True
+    elif opt == '--sleep':
+        sleepTime = float(arg)
 
 if minOverlap is None:
     minOverlap = 5
@@ -172,6 +252,9 @@ for line in ifile:
             modules.append(newMod)
 
 ofile = xlsxwriter.Workbook(oFilePath)
+
+if summary:
+    lotsOfEntries = {}
 
 #go through ENRICHR API dance once per module, and add enriched data to ofile
 for module in modules:
@@ -234,6 +317,7 @@ for module in modules:
                 print('  Could not search a previous version of %s. Skipping.' % geneSetLibrary)
         else:
             parseResults(response , geneSetLibrary , entries)
+        time.sleep(sleepTime)
 
     print('Libraries searched.')
 
@@ -259,7 +343,7 @@ for module in modules:
     #Iterate over entries and print each entry
     row = 1
     for entry in sortedEntries:
-        if entry.genes != 'Genes' and int(entry.overlapGenes[:entry.overlapGenes.find('_')]) >= int(minOverlap) and float(entry.adjPval) <= float(minAdjPval):
+        if entry.genes != 'Genes' and int(entry.overlapGenesInt) >= int(minOverlap) and float(entry.adjPval) <= float(minAdjPval):
             worksheet.write_string(row , 0 , entry.geneSet)
             worksheet.write_string(row , 1 , entry.term)
             worksheet.write_string(row , 2 , str(entry.overlapGenes))
@@ -269,11 +353,19 @@ for module in modules:
             worksheet.write_number(row , 6 , float(entry.score))
             worksheet.write_string(row , 7 , entry.genes)
             row += 1
+    if summary:
+        lotsOfEntries[module.name] = [entry.term for entry in sortedEntries if entry.overlapGenesInt >= int(minOverlap) and entry.adjPval <= float(minAdjPval)]
     print('%s written.' % module.name)
+
+#run named entity recognition/generate summary sheet if --summary is specified
+if summary:
+    summarySheet(lotsOfEntries , ofile)
+
 
 #Close ifile and ofile
 print('\nSaving %s...' % oFilePath)
 ifile.close()
 ofile.close()
+
 
 print('\n\n%s written. All done!' % oFilePath)
